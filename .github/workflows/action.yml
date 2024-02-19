@@ -1,0 +1,79 @@
+name: Build KafkaDemo
+  
+on:
+  push:
+    branches: 
+      - master
+      - features/*
+      
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: windows-2022
+    
+    steps:
+      - name: Setup MSBuild
+        uses: actions/checkout@v2
+      
+      - name: Setup MSBuild Path
+        uses: microsoft/setup-msbuild@v1.1.3
+      
+      - name: Setup Nuget
+        uses: NuGet/setup-nuget@v1.1.1
+        with: 
+          nuget-version: '6.0.0'
+          
+      - name: Job Specific Setups
+        run: |
+          echo "CURRENT_WORKING_BRANCH_NAME=${GITHUB_REF#refs/heads/}" >>$GITHUB_OUTPUT
+        id: EXTRACT_CURRENT_WORKING_BRANCH_NAME
+        shell : bash
+
+      - name: Determine Build Version
+        id: set_version
+        shell: pwsh
+        run: |
+          $VersionChangeSha = git log -1 --pretty=%H --full-history -- VERSION.txt
+          Write-Host "counting commits between $VersionChangeSha - $($env:GITHUB_SHA)"
+          $NumberOfCommitSinceLastVersionChange = git rev-list --count "$VersionChangeSha..$($env:GITHUB_SHA)"
+          # Always increment by 1
+          [int]$NumberOfCommitSinceLastVersionChange += 1
+          Write-Host "NewBuildVersion = $NumberOfCommitSinceLastVersionChange"
+
+          $versionBase = Get-Content VERSION.txt
+          echo "version=$versionBase" >>$env:GITHUB_OUTPUT
+          $buildVersion = "${versionBase}.${NumberOfCommitSinceLastVersionChange}"
+          echo "build_version=$buildVersion" >>$env:GITHUB_OUTPUT
+
+      - name: Check Version Environment Variables
+        run: |
+          echo "build_version is ${{ steps.set_version.outputs.build_version }}"
+          echo "version is ${{ steps.set_version.outputs.version }}"        
+          echo "CURRENT_WORKING_BRANCH_NAME is ${{ steps.EXTRACT_CURRENT_WORKING_BRANCH_NAME.outputs.CURRENT_WORKING_BRANCH_NAME }}"
+        
+      - name: Restore Nuget Packages
+        run: |
+          nuget locals all -clear
+          nuget restore KafkaDemo.sln
+
+      - name: Build Solution
+        run: |
+          msbuild KafkaDemo.sln -t:Rebuild /p:Configuration=Release /p:OutputPath=${{ github.workspace }}\bin\Release
+
+      - name: Zip Artifacts
+        shell: powershell
+        run: |
+          echo "Zipping Artifacts to ${{ github.workspace }}\Archive\KafkaDemo_Binaries.zip"
+          $archiveRoot = "${{ github.workspace }}\Archive"
+          $archivePath = "$archiveRoot\KafkaDemo_Release_${{ steps.set_version.outputs.version }}.zip"
+          if(Test-Path $archiveRoot)
+          {
+            Remove-Item -path $archiveRoot -recurse
+          }
+          New-Item -ItemType Directory -Force -Path $archiveRoot 
+          Compress-Archive -Force -Path "${{ github.workspace }}\bin\Release\*" -DestinationPath $archivePath
+          echo "Archive saved at $archivePath"
+        
