@@ -80,4 +80,4 @@ jobs:
       - name: Push Artifactory
         run: |
           echo "JFrog Pass: "
-          echo ${{ secret.TW_JFROG_PASS }}
+          echo ${{ secrets.TW_JFROG_PASS }}
