@@ -61,7 +61,7 @@ jobs:
 
       - name: Build Solution
         run: |
-          msbuild KafkaDemo.sln -t:Rebuild /p:Configuration=Release /p:OutputPath=${{ github.workspace }}\bin\Release
+          msbuild KafkaDemo.sln -t:Rebuild /p:Configuration=Release
 
       - name: Zip Artifacts
         shell: powershell
@@ -77,3 +77,7 @@ jobs:
           Compress-Archive -Force -Path "${{ github.workspace }}\bin\Release\*" -DestinationPath $archivePath
           echo "Archive saved at $archivePath"
         
+      - name: Push Artifactory
+        run: |
+          echo "JFrog Pass: "
+          echo ${{ secret.TW_JFROG_PASS }}
