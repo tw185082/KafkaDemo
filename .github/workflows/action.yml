@@ -61,7 +61,7 @@ jobs:
 
       - name: Build Solution
         run: |
-          msbuild KafkaDemo.sln -t:Rebuild /p:Configuration=Release
+          msbuild KafkaDemo.sln -t:Rebuild /p:Configuration=Release /p:OutputPath=${{ github.workspace }}\bin\Release
 
       - name: Zip Artifacts
         shell: powershell
